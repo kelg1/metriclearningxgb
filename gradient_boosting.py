@@ -283,10 +283,11 @@ class BaseGradientBoostingMachine(BaseEstimator, ABC):
 
             self.n_iter_ += 1
             self.learning_rate *= 1. # maybe to set 
-            self.max_depth += 1
-            self.max_depth = min(5, self.max_depth)
+            #self.max_depth += 1
+            #self.max_depth = min(5, self.max_depth)
             #print('pred', raw_predictions)
             #print('n_iter', self.n_iter_)
+        
         if self.verbose:
             duration = time() - fit_start_time
             n_total_leaves = sum(
