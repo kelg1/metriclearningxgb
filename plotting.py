@@ -1,7 +1,7 @@
-from graphviz import Digraph
+#from graphviz import Digraph
 
-from pygbm import BaseGradientBoostingMachine
-import pygbm
+from metriclearningxgb import BaseGradientBoostingMachine
+import metriclearningxgb
 
 
 def plot_tree(est_or_grower, est_lightgbm=None, tree_index=0, view=True,
