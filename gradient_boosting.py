@@ -12,9 +12,9 @@ from sklearn.metrics.scorer import check_scoring
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 
-from pymxgb.binning import BinMapper
-from pymxgb.grower import TreeGrower
-from pymxgb.loss import _LOSSES
+from metriclearningxgb.binning import BinMapper
+from metriclearningxgb.grower import TreeGrower
+from metriclearningxgb.loss import _LOSSES
 
 
 class BaseGradientBoostingMachine(BaseEstimator, ABC):
