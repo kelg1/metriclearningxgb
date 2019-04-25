@@ -264,14 +264,14 @@ class TreeGrower:
                 return np.dot(self.splitting_context.G, x) + 1/2 * \
                 np.dot(x, np.dot(self.splitting_context.l2_regularization*np.eye(nl) + \
                     self.splitting_context.H, x))
-            #clf = linear_model.Lasso(alpha=0.1)
+            clf = linear_model.Lasso(alpha=.2)
+            #print('OK')
             def jac(x):
                 return self.splitting_context.G + \
                 np.dot(self.splitting_context.l2_regularization*np.eye(nl) + \
                     self.splitting_context.H, x)
             values = scipy.optimize.minimize(obj, np.ones((nl,))/len(self.yd), jac=jac,
-                #bounds=[(-1,1) for i in range(nl)]
-                ).x
+                bounds=[(-1,1) for i in range(nl)]).x
             #print('values:', values)
             for i, n in enumerate(final_leaves):
                 n.value = values[i]

@@ -521,7 +521,7 @@ def _find_best_bin_to_split_helper(context, feature_idx, histogram, sample_indic
     # condition is not satisfied. Such invalid splits are later discarded by
     # the TreeGrower.
     #try:
-        #print('sampleindice', len(list(sample_indices)))
+    #print('sampleindice', sample_indices)
     #except TypeError:
      #   print(feature_idx, histogram, sample_indices, 
       #                              n_samples)
@@ -529,23 +529,31 @@ def _find_best_bin_to_split_helper(context, feature_idx, histogram, sample_indic
     gradient_left, hessian_left = 0., 1.
     n_samples_left = 0
     sample_indices_left = set({})
+
     #print('nbinsperfeat', context.n_bins_per_feature)
     n_design = len(context.yd)
     #print('sample_indices_here_', sample_indices)
     for bin_idx in range(context.n_bins_per_feature[feature_idx]):
         n_samples_left += histogram[bin_idx]['count']
         #print('houloulou', histogram[bin_idx]['sample_indices'])
+        #break
         sample_indices_left = sample_indices_left.union(
             histogram[bin_idx]['sample_indices']) \
         if not isinstance(histogram[bin_idx]['sample_indices'], int) else sample_indices_left
         #print('prob_here', sample_indices_left)
-        parent_sample_indices = histogram[bin_idx]['sample_indices']
+        #parent_sample_indices = histogram[bin_idx]['sample_indices']
+        parent_sample_indices = set({(i,j) for i,j in sample_indices})
         if isinstance(parent_sample_indices, int):
+            #print('im here', )
             sample_indices_right = set(())
         else: 
+            #print('hihihihHello ')
             sample_indices_right = set({(i,j) for i,j in parent_sample_indices}) - sample_indices_left
-        n_samples_right = n_samples - n_samples_left
-
+            #print('regadeca', parent_sample_indices,)
+            #print('regardeçaplutot',  sample_indices_left)
+            #print('etcaalors', sample_indices_right)
+            n_samples_right = len(sample_indices_right)
+        #print('nright', len(parent_sample_indices), n_samples_left, n_samples_right)
         if context.constant_hessian:
             #hessian_left += (histogram[bin_idx]['count']
              #                * context.constant_hessian_value)
@@ -579,6 +587,7 @@ def _find_best_bin_to_split_helper(context, feature_idx, histogram, sample_indic
         #print('n1,n2', n1,n2)
         gradient_split = np.append(gradient_left, context.G)
         gradient_split[1] = gradient_right
+        
         # Hessian Split building
         hessian_split = np.zeros((n1+1, n2+1))
         hessian_split[1:,1:] = context.H
@@ -592,6 +601,7 @@ def _find_best_bin_to_split_helper(context, feature_idx, histogram, sample_indic
 
         hessian_split[0,0] = H_builder(sample_indices_left,
             sample_indices_left, ydd)
+        #print('sample_indice_right', sample_indices_right)
         hessian_split[1,1] = H_builder(sample_indices_right,
              sample_indices_right, ydd) 
         hessian_split[1,0] = hessian_split[0,1] = H_builder(sample_indices_right,
@@ -599,7 +609,7 @@ def _find_best_bin_to_split_helper(context, feature_idx, histogram, sample_indic
         
         #print('gradient_split', gradient_split)
         #print('G', context.G)
-        #print('H_spilit', hessian_split)
+        #print('H_split', hessian_split)
         #print('H', context.H)
         
         gain = _split_gain(gradient_split, hessian_split,
@@ -651,6 +661,7 @@ def _split_gain(gradient_split, hessian_split,
         #return (gradient ** 2) / (hessian + l2_regularization)
         gradient = np.array(gradient)
         nl = np.shape(gradient)[0]
+        #print('hessian', hessian)
         return np.dot(gradient.reshape(-1, 1).T, np.dot(np.linalg.inv(\
                 hessian + l2_regularization*np.eye(nl)), gradient))
     gain = negative_loss(gradient_split, hessian_split)

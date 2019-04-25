@@ -1,6 +1,6 @@
-#from metriclearningxgb.gradient_boosting import GradientBoostingClassifier
-from metriclearningxgb.gradient_boosting import GradientBoostingRegressor
-from metriclearningxgb.gradient_boosting import BaseGradientBoostingMachine
+#from pymxgb.gradient_boosting import GradientBoostingClassifier
+from pymxgb.gradient_boosting import GradientBoostingRegressor
+from pymxgb.gradient_boosting import BaseGradientBoostingMachine
 
 
 __version__ = '0.1.0.dev0'

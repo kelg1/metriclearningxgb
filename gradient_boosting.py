@@ -12,9 +12,9 @@ from sklearn.metrics.scorer import check_scoring
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 
-from metriclearningxgb.binning import BinMapper
-from metriclearningxgb.grower import TreeGrower
-from metriclearningxgb.loss import _LOSSES
+from pymxgb.binning import BinMapper
+from pymxgb.grower import TreeGrower
+from pymxgb.loss import _LOSSES
 
 
 class BaseGradientBoostingMachine(BaseEstimator, ABC):
@@ -148,9 +148,9 @@ class BaseGradientBoostingMachine(BaseEstimator, ABC):
         
         # modify X 
         diff_X_Xd = np.abs(X[:,:, np.newaxis] - self.Xd[:,:, np.newaxis].T).reshape(
-            X.shape[0], self.Xd.shape[0], X.shape[1])
+            X.shape[0], self.Xd.shape[0], X.shape[1], order='f')
         mean_X_Xd = .5*(X[:,:, np.newaxis] + self.Xd[:,:, np.newaxis].T).reshape(
-            X.shape[0], self.Xd.shape[0], X.shape[1])
+            X.shape[0], self.Xd.shape[0], X.shape[1], order='f')
         Phi_X_Xd = np.concatenate((diff_X_Xd, mean_X_Xd), axis=2)
         #print(Phi_X_Xd.shape)
         if self.verbose:
@@ -174,7 +174,8 @@ class BaseGradientBoostingMachine(BaseEstimator, ABC):
         if self.validation_split is not None:
             # stratify for classification
             stratify = y if hasattr(self.loss_, 'predict_proba') else None
-
+            if hasattr(self.loss_, 'predict_proba'):
+                raise(NotImplementedError)
             X_binned_train, X_binned_val, y_train, y_val = train_test_split(
                 X_binned, y, test_size=self.validation_split,
                 stratify=stratify, random_state=rng)
@@ -239,7 +240,7 @@ class BaseGradientBoostingMachine(BaseEstimator, ABC):
             # Update gradients and hessians, inplace
             self.loss_.update_gradients_and_hessians(gradients, hessians,
                                                      y_train, raw_predictions)
-            #
+            
             #print('grad', gradients)
             predictors.append([])
 
@@ -282,12 +283,12 @@ class BaseGradientBoostingMachine(BaseEstimator, ABC):
                 acc_prediction_time += toc_pred - tic_pred
 
             self.n_iter_ += 1
-            self.learning_rate *= 1. # maybe to set 
+            #self.learning_rate *= 1. # maybe to set 
+            self.learning_rate = 1./(self.n_iter_+1)
             #self.max_depth += 1
             #self.max_depth = min(5, self.max_depth)
             #print('pred', raw_predictions)
             #print('n_iter', self.n_iter_)
-        
         if self.verbose:
             duration = time() - fit_start_time
             n_total_leaves = sum(
@@ -345,7 +346,7 @@ class BaseGradientBoostingMachine(BaseEstimator, ABC):
                 #print('predict', pred)
                 #print(predicted.shape)
                 #print(predicted[start:end])
-                raw_predictions[start:end,k] += pred_X
+                raw_predictions[start:end,k] += pred_X.reshape(raw_predictions[start:end, k].shape)
         return raw_predictions
 
     def _predict_binned(self, X_binned):
@@ -379,13 +380,15 @@ class BaseGradientBoostingMachine(BaseEstimator, ABC):
                 start, end = n_samples * k, n_samples * (k + 1)
                 #print('pred', predictor.predict_binned(X_binned).shape)
                 pred = predictor.predict_binned(X_binned)
-                #print(pred.shape)
+                #print('pred', pred.shape)
                 #print(self.yd.shape)
-                pred = np.dot(pred, self.yd)
-                #print(pred.shape)
-                #print(predicted.shape)
-                #print(predicted[start:end])
-                predicted[start:end,k] += pred
+                pred_ = np.dot(pred, self.yd)
+                #print('pred_yd', pred.shape)
+                #print('predicted', predicted.shape)
+                #print('k', k)
+                #print('pred_', pred_.shape)
+                #print('predcc', predicted[start:end, k].shape)
+                predicted[start:end, k] += pred_.reshape(predicted[start:end, k].shape)
         return predicted
 
     def _stopping_criterion(self, start_time, scorer, X_binned_train, y_train,
@@ -567,6 +570,7 @@ def _update_raw_predictions(leaves_data, yd, raw_predictions):
         for i, j in sample_indices:
             #print('leaf_va', leaf_value)
             raw_predictions[i] += leaf_value*yd[j]
+
 
 
 

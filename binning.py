@@ -112,7 +112,7 @@ def _map_to_bins(data, binning_thresholds=None, out=None):
     return np.array(binned.reshape(data.shape), order='F')
 
 
-#@njit(parallel=True)
+@njit(parallel=True)
 def _map_num_col_to_bins(data, binning_thresholds, binned):
     """Binary search to the find the bin index for each value in data."""
     for i in prange(data.shape[0]):
