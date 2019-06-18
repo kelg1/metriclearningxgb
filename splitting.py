@@ -169,12 +169,22 @@ class SplittingContext:
         mesht, meshd = np.meshgrid(
                             np.arange(0, X_binned.shape[0], 1, np.uint32),
                                 np.arange(0, X_binned.shape[1], 1, np.uint32) 
-                                    )  
+                                    )
+        ##modif##  
         self.partition = np.array([(idt, idd) for idt, idd in zip(
             mesht.ravel(), meshd.ravel())])
         # buffers used in split_indices to support parallel splitting.
         self.left_indices_buffer = np.empty_like(self.partition)
         self.right_indices_buffer = np.empty_like(self.partition)
+        
+        #partition = np.array([(idt, idd) for idt, idd in zip(
+        #    mesht.ravel(), meshd.ravel())])
+        # buffers used in split_indices to support parallel splitting.
+        #left_indices_buffer = np.empty_like(partition)
+        #right_indices_buffer = np.empty_like(partition)
+        #self.partition = set({tuple((i,j)) for i,j in partition})
+        #self.left_indices_buffer = set({tuple((i,j)) for i,j in left_indices_buffer})
+        #self.right_indices_buffer = set({tuple((i,j)) for i,j in right_indices_buffer})
 
         @property
         def G(self,):
@@ -633,17 +643,35 @@ def _find_best_bin_to_split_helper(context, feature_idx, histogram, sample_indic
     return best_split, histogram
 
 
+#@njit
 def H_builder(sample_indices1, sample_indices2, yd):
-    H_n1n2 = 0
-    ind_n1 = sample_indices1
-    ind_n2 = sample_indices2
-    for i1, i2 in ind_n1:
-        for i11, i22 in ind_n2:
-            if i1==i11:
-                H_n1n2 += np.dot(yd[i2], yd[i22])
+    #H_n1n2 = 0 
+    #ind_n1 = sample_indices1 if isinstance(sample_indices1, set) else \
+    #set({tuple((i,j)) for i,j in sample_indices1})
+    #ind_n2 = sample_indices2 if isinstance(sample_indices2, set) else \
+    #set({tuple((i,j)) for i,j in sample_indices2})
 
+    ## njit the function:
+    ind_n1 = sample_indices1 if isinstance(sample_indices1, np.ndarray) else \
+    np.array([[i,j] for i,j in sample_indices1])
+    ind_n2 = sample_indices2 if isinstance(sample_indices2, np.ndarray) else \
+    np.array([[i,j] for i,j in sample_indices2])
+    H_n1n2 = H_builder_njitted(ind_n1, ind_n2, yd)
     return H_n1n2
-#@njit(fastmath=False)
+
+@njit
+def H_builder_njitted(sample_indices1, sample_indices2, yd):
+    H_n1n2 = 0 
+    for indice_1 in range(len(sample_indices1)):
+        i1, i2 = sample_indices1[indice_1]
+        for indice_2 in range(len(sample_indices2)):
+            i11, i22 = sample_indices2[indice_2]
+            if i1==i11:
+                H_n1n2 += np.sum(yd[i2]*yd[i22])
+    return H_n1n2
+
+
+@njit(fastmath=False)
 def _split_gain(gradient_split, hessian_split,
                 gradient, hessian,
                 l2_regularization):
@@ -659,8 +687,9 @@ def _split_gain(gradient_split, hessian_split,
     def negative_loss(gradient, hessian):
         #print("negative_loss hello")
         #return (gradient ** 2) / (hessian + l2_regularization)
-        gradient = np.array(gradient)
-        nl = np.shape(gradient)[0]
+        gradient = gradient
+        #nl = np.shape(gradient)[0]
+        nl = len(gradient)
         #print('hessian', hessian)
         return np.dot(gradient.reshape(-1, 1).T, np.dot(np.linalg.inv(\
                 hessian + l2_regularization*np.eye(nl)), gradient))

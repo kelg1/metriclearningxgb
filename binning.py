@@ -100,7 +100,7 @@ def _map_to_bins(data, binning_thresholds=None, out=None):
         assert out.flags.f_contiguous
         binned = out
     else:
-        binned = np.zeros_like(data_, dtype=np.uint8, order='F')
+        binned = np.zeros_like(data_, dtype=np.uint8, order='f')
 
     binning_thresholds = tuple(np.ascontiguousarray(bt, dtype=np.float32)
                                for bt in binning_thresholds)
@@ -109,7 +109,7 @@ def _map_to_bins(data, binning_thresholds=None, out=None):
         _map_num_col_to_bins(data_[:, feature_idx],
                              binning_thresholds[feature_idx],
                              binned[:, feature_idx])
-    return np.array(binned.reshape(data.shape), order='F')
+    return np.array(binned.reshape(data.shape, order='f'))
 
 
 @njit(parallel=True)
@@ -166,7 +166,7 @@ class BinMapper(BaseEstimator, TransformerMixin):
         """
         n_samples, n_design, n_features = X.shape
 
-        X_ = check_array(X.reshape((n_samples*n_design, n_features), order='f'))
+        X_ = check_array(X.reshape(n_samples*n_design, n_features, order='f'))
         self.bin_thresholds_ = find_binning_thresholds(
             X, self.max_bins, subsample=self.subsample,
             random_state=self.random_state)

@@ -16,7 +16,6 @@ from metriclearningxgb.binning import BinMapper
 from metriclearningxgb.grower import TreeGrower
 from metriclearningxgb.loss import _LOSSES
 
-
 class BaseGradientBoostingMachine(BaseEstimator, ABC):
     """Base class for gradient boosting estimators."""
 
@@ -24,7 +23,7 @@ class BaseGradientBoostingMachine(BaseEstimator, ABC):
     def __init__(self, loss, learning_rate, max_iter, max_leaf_nodes,
                  max_depth, min_samples_leaf, l2_regularization, max_bins,
                  max_no_improvement, validation_split, scoring, tol, verbose,
-                 random_state):
+                 random_state, ):
         self.loss = loss
         self.learning_rate = learning_rate
         self.max_iter = max_iter
@@ -179,28 +178,31 @@ class BaseGradientBoostingMachine(BaseEstimator, ABC):
             X_binned_train, X_binned_val, y_train, y_val = train_test_split(
                 X_binned, y, test_size=self.validation_split,
                 stratify=stratify, random_state=rng)
-            # Histogram computation is faster on feature-aligned data.
             X_binned_train = np.asfortranarray(X_binned_train)
+            X_binned_val = np.asfortranarray(X_binned_val)
+            # Histogram computation is faster on feature-aligned data.
         else:
             X_binned_train, y_train = X_binned, y
             X_binned_val, y_val = None, None
-
+            X_binned_train = np.asfortranarray(X_binned_train)
+        
         # Subsample the training set for score-based monitoring.
         subsample_size = 10000
         if X_binned_train.shape[0] < subsample_size:
-            X_binned_small_train = np.ascontiguousarray(X_binned_train)
+            X_binned_small_train = np.asfortranarray(X_binned_train)
             y_small_train = y_train
         else:
             indices = rng.choice(
                 np.arange(X_binned_train.shape[0]), subsample_size)
             X_binned_small_train = X_binned_train[indices]
             y_small_train = y_train[indices]
-
+        self.X_binned_small_train = X_binned_small_train
+        self.X_binned_val = X_binned_val
         if self.verbose:
             print("Fitting gradient boosted rounds:")
 
         #n_samples = X_binned_train.shape[0] * X_binned_train.shape[1]
-        n_samples = X_binned_train.shape[0] 
+        n_samples = X_binned_small_train.shape[0] 
         # values predicted by the trees. Used as-is in regression, and
         # transformed into probas and / or classes for classification
         raw_predictions = np.zeros(shape=(n_samples,
@@ -239,7 +241,7 @@ class BaseGradientBoostingMachine(BaseEstimator, ABC):
 
             # Update gradients and hessians, inplace
             self.loss_.update_gradients_and_hessians(gradients, hessians,
-                                                     y_train, raw_predictions)
+                                                     y_small_train, raw_predictions)
             
             #print('grad', gradients)
             predictors.append([])
@@ -253,8 +255,13 @@ class BaseGradientBoostingMachine(BaseEstimator, ABC):
                 # n_trees_per_iteration is 1 and xxxx_at_k is equivalent to the
                 # whole array.
 
+                #X_binned_small_train_, _, gradients_at_k_, _, indices_subsample_, _ = \
+                #train_test_split(X_binned_small_train, gradients_at_k, np.arange(len(X_binned_small_train)), \
+                #train_size=subsample_ratio, shuffle=False, random_state=0)
+                #X_binned_small_train_ = np.asfortranarray(X_binned_small_train_)
+                
                 grower = TreeGrower(
-                    X_binned_train, gradients_at_k, hessians_at_k, yd,
+                    X_binned_small_train, gradients_at_k, hessians_at_k, yd,
                     max_bins=self.max_bins,
                     n_bins_per_feature=self.bin_mapper_.n_bins_per_feature_,
                     max_leaf_nodes=self.max_leaf_nodes,
@@ -346,7 +353,7 @@ class BaseGradientBoostingMachine(BaseEstimator, ABC):
                 #print('predict', pred)
                 #print(predicted.shape)
                 #print(predicted[start:end])
-                raw_predictions[start:end,k] += pred_X.reshape(raw_predictions[start:end, k].shape)
+                raw_predictions[start:end,k] += pred_X.reshape(raw_predictions[start:end, k].shape, order='f')
         return raw_predictions
 
     def _predict_binned(self, X_binned):
@@ -383,12 +390,12 @@ class BaseGradientBoostingMachine(BaseEstimator, ABC):
                 #print('pred', pred.shape)
                 #print(self.yd.shape)
                 pred_ = np.dot(pred, self.yd)
-                #print('pred_yd', pred.shape)
+                #print('pred_yd', pred_.shape)
                 #print('predicted', predicted.shape)
                 #print('k', k)
                 #print('pred_', pred_.shape)
                 #print('predcc', predicted[start:end, k].shape)
-                predicted[start:end, k] += pred_.reshape(predicted[start:end, k].shape)
+                predicted[start:end, k] += pred_.reshape(predicted[start:end, k].shape, order='f')
         return predicted
 
     def _stopping_criterion(self, start_time, scorer, X_binned_train, y_train,
@@ -570,6 +577,8 @@ def _update_raw_predictions(leaves_data, yd, raw_predictions):
         for i, j in sample_indices:
             #print('leaf_va', leaf_value)
             raw_predictions[i] += leaf_value*yd[j]
+
+
 
 
 

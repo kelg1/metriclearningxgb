@@ -200,7 +200,7 @@ class TreeGrower:
         self.total_find_split_time = 0.  # time spent finding the best splits
         self.total_apply_split_time = 0.  # time spent splitting nodes
         self.list_current_leaves = []
-        self._intilialize_root()
+        self._initialize_root()
         self.n_nodes = 1
 
         
@@ -250,6 +250,7 @@ class TreeGrower:
             #print('g', g_)
             self.splitting_context.G = g_
             self.splitting_context.H = h_
+            #print('h', h_)
             nl = len(final_leaves)
             #print(nl)
             #print(len(self.splitting_context.G))
@@ -264,14 +265,20 @@ class TreeGrower:
                 return np.dot(self.splitting_context.G, x) + 1/2 * \
                 np.dot(x, np.dot(self.splitting_context.l2_regularization*np.eye(nl) + \
                     self.splitting_context.H, x))
-            clf = linear_model.Lasso(alpha=.2)
+            #clf = linear_model.Lasso(alpha=1)
+            #XX_lasso = scipy.linalg.sqrtm(self.splitting_context.l2_regularization*np.eye(nl) + \
+            #        self.splitting_context.H)
+            #yy_lasso = 2*np.dot(self.splitting_context.G, np.linalg.pinv(XX_lasso))
+            #clf.fit(XX_lasso, yy_lasso)
+            #values = clf.coef_
             #print('OK')
             def jac(x):
                 return self.splitting_context.G + \
                 np.dot(self.splitting_context.l2_regularization*np.eye(nl) + \
                     self.splitting_context.H, x)
-            values = scipy.optimize.minimize(obj, np.ones((nl,))/len(self.yd), jac=jac,
-                bounds=[(-1,1) for i in range(nl)]).x
+            values = scipy.optimize.minimize(obj, np.ones((nl,))/(1.*len(self.yd)), jac=jac,
+                # bounds=[(0,1) for i in range(nl)]
+                ).x
             #print('values:', values)
             for i, n in enumerate(final_leaves):
                 n.value = values[i]
@@ -283,24 +290,43 @@ class TreeGrower:
         if len(current_leaves)==0:
             current_leaves = self.list_current_leaves
         G_ = np.array([n.sum_gradients for n in current_leaves])
-        H_ = np.array([[self.H_builder(n1.sample_indices, n2.sample_indices) for n2 in current_leaves]
-                    for n1 in current_leaves])
+        H_ = np.empty((len(current_leaves), len(current_leaves)))
+        for indl, n1 in enumerate(current_leaves):
+            for indl2, n2 in enumerate(current_leaves):
+                if indl2 <= indl:
+                    H_[indl, indl2] = H_[indl2, indl] = self.H_builder(n1.sample_indices, n2.sample_indices)
+
+        #H_ = np.array([[self.H_builder(n1.sample_indices, n2.sample_indices) for n2 in current_leaves]
+        #          for n1 in current_leaves])
         #print(H_)
         return G_, H_
 
+#    def H_builder(self, sample_indices1, sample_indices2):
+#        H_n1n2 = 0
+#        ind_n1 = sample_indices1
+#        ind_n2 = sample_indices2
+#        for i1, i2 in ind_n1:
+#            for i11, i22 in ind_n2:
+#                if i1==i11:
+#                    H_n1n2 += np.dot(self.yd[i2], 
+#                        self.yd[i22])
+#        #print(H_n1n2)
+#        return H_n1n2
+
     def H_builder(self, sample_indices1, sample_indices2):
-        H_n1n2 = 0
-        ind_n1 = sample_indices1
-        ind_n2 = sample_indices2
-        for i1, i2 in ind_n1:
+        H_n1n2 = 0 
+        ind_n1 = sample_indices1 if isinstance(sample_indices1, set) else \
+        set({tuple((i,j)) for i,j in sample_indices1})
+        ind_n2 = sample_indices2 if isinstance(sample_indices2, set) else \
+        set({tuple((i,j)) for i,j in sample_indices2})
+        for i1, i2  in ind_n1:
             for i11, i22 in ind_n2:
                 if i1==i11:
-                    H_n1n2 += np.dot(self.yd[i2], 
-                        self.yd[i22])
-        #print(H_n1n2)
+                    H_n1n2 += np.sum(self.yd[i2]*self.yd[i22])
         return H_n1n2
 
-    def _intilialize_root(self):
+
+    def _initialize_root(self):
         """Initialize root node and finalize it if needed."""
         n_samples = self.X_binned.shape[0] * self.X_binned.shape[1]
         n_design = self.yd.shape[0]
@@ -314,7 +340,9 @@ class TreeGrower:
             hessian = self.splitting_context.hessians.sum()
         self.root = TreeNode(
             depth=depth,
+            ###modif####
             sample_indices=self.splitting_context.partition.view(),
+            #sample_indices=self.splitting_context.partition,
             gradients=self.splitting_context.gradients,
             sum_gradients= np.sum([np.dot(gi, yj) for gi in self.splitting_context.gradients 
                 for yj in self.yd]), 
