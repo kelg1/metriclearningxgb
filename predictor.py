@@ -59,7 +59,7 @@ def _predict_one_binned(nodes, binned_data):
             node = nodes[node['right']]
 
 
-#@njit(parallel=True)
+@njit(parallel=True)
 def _predict_binned(nodes, binned_data, out):
     #print(binned_data.shape)
     for i in prange(binned_data.shape[0]):
@@ -80,7 +80,7 @@ def _predict_one_from_numeric_data(nodes, numeric_data):
             node = nodes[node['right']]
 
 
-#@njit(parallel=True)
+@njit(parallel=True)
 def _predict_from_numeric_data(nodes, numeric_data, out):
     for i in prange(numeric_data.shape[0]):
         for j in prange(numeric_data.shape[1]):

@@ -122,13 +122,15 @@ class SplittingContext:
         The minimum gain needed to split a node. Splits with lower gain will
         be ignored.
     """
-    def __init__(self, X_binned, yd, max_bins, n_bins_per_feature,
+    def __init__(self, selected_features, X_binned, yd, max_bins, n_bins_per_feature,
                  gradients, hessians, l2_regularization, list_current_leaves,
                  min_hessian_to_split=1e-3, min_samples_leaf=20,
-                 min_gain_to_split=0.):
-
+                 min_gain_to_split=0., ):
+        
+        self.selected_features = selected_features
         self.X_binned = X_binned
-        self.n_features = X_binned.shape[2]
+        #self.n_features = X_binned.shape[2]
+        self.n_features = selected_features.shape[0]
         # Note: all histograms will have <max_bins> bins, but some of the
         # last bins may be unused if n_bins_per_feature[f] < max_bins
         self.max_bins = max_bins
@@ -137,14 +139,18 @@ class SplittingContext:
         self.hessians = hessians
         self.yd = yd
         #assert(X_binned.shape[1]==yd.shape[0])
-        self.n_design = yd.shape[0]
+        self.n_design = yd.shape[0] ##
+    
         # for root node, gradients and hessians are already ordered
-        self.ordered_gradients = gradients.copy()
-        self.ordered_hessians = hessians.copy()
+        self.ordered_gradients = gradients.copy()##
+        self.ordered_hessians = hessians.copy()##
         ## a modifier ##
         self.sum_gradients = self.gradients.sum()
         #self.sum_hessians = self.hessians.sum()
-        self.constant_hessian = hessians.shape[0] == 1
+        
+        self.constant_hessian = hessians.shape[0] == 1 ###
+       
+        
         self.l2_regularization = l2_regularization
         self.min_hessian_to_split = min_hessian_to_split
         self.min_samples_leaf = min_samples_leaf
@@ -153,7 +159,9 @@ class SplittingContext:
         self.H_ = None
         self.list_current_leaves = list_current_leaves
         if self.constant_hessian:
+            
             self.constant_hessian_value = self.hessians[0]  # 1 scalar
+            
         else:
             self.constant_hessian_value = float32(1.)  # won't be used anyway
 
@@ -169,12 +177,22 @@ class SplittingContext:
         mesht, meshd = np.meshgrid(
                             np.arange(0, X_binned.shape[0], 1, np.uint32),
                                 np.arange(0, X_binned.shape[1], 1, np.uint32) 
-                                    )  
+                                    )
+        ##modif##  
         self.partition = np.array([(idt, idd) for idt, idd in zip(
             mesht.ravel(), meshd.ravel())])
         # buffers used in split_indices to support parallel splitting.
         self.left_indices_buffer = np.empty_like(self.partition)
         self.right_indices_buffer = np.empty_like(self.partition)
+        
+        #partition = np.array([(idt, idd) for idt, idd in zip(
+        #    mesht.ravel(), meshd.ravel())])
+        # buffers used in split_indices to support parallel splitting.
+        #left_indices_buffer = np.empty_like(partition)
+        #right_indices_buffer = np.empty_like(partition)
+        #self.partition = set({tuple((i,j)) for i,j in partition})
+        #self.left_indices_buffer = set({tuple((i,j)) for i,j in left_indices_buffer})
+        #self.right_indices_buffer = set({tuple((i,j)) for i,j in right_indices_buffer})
 
         @property
         def G(self,):
@@ -408,6 +426,30 @@ def find_node_split(context, sample_indices):
         # won't be used (a priori) #
         ctx.sum_hessians = ctx.ordered_hessians[:n_samples].sum()
 
+#     ######
+#     colsubsample_ratio = .7
+#     subsample_size = int(colsubsample_ratio * context.n_features)
+#     #print('subsample_size', subsample_size)
+#     #print('context.n_features', context.n_features)
+#     selected_features_indices = np.random.choice(np.arange(context.n_features),replace = False, size=subsample_size)
+#     #print('selected_features_indices', selected_features_indices)
+#     split_infos = [SplitInfo(-1., 0, 0, 0., 0., 0., 0., 0, 0)
+#                    for i in range(subsample_size)]
+#     histograms = np.empty(
+#         shape=(np.int64(subsample_size), np.int64(context.max_bins)),
+#         dtype=HISTOGRAM_DTYPE
+#     )
+#     for i, feature_idx in enumerate(selected_features_indices):
+#         if i not in selected_features_indices:
+#             #print('im here', feature_idx)
+#             split_info, histogram = _find_histogram_split(
+#                 context, feature_idx, sample_indices)
+#             #print('ksqdsqd', split_info)
+#             split_infos[i] = split_info
+#             #print('tdsf', histogram.shape)
+#             histograms[i, :] = histogram    
+    ######
+        
     # Pre-allocate the results datastructure to be able to use prange:
     # numba jitclass do not seem to properly support default values for kwargs.
     split_infos = [SplitInfo(-1., 0, 0, 0., 0., 0., 0., 0, 0)
@@ -416,16 +458,28 @@ def find_node_split(context, sample_indices):
         shape=(np.int64(context.n_features), np.int64(context.max_bins)),
         dtype=HISTOGRAM_DTYPE
     )
-    for feature_idx in prange(context.n_features):
+    ###########
+    #print(context.selected_features)
+    for i, feature_idx in enumerate(context.selected_features):
         #print('im here', feature_idx)
         split_info, histogram = _find_histogram_split(
             context, feature_idx, sample_indices)
-        split_infos[feature_idx] = split_info
-        histograms[feature_idx, :] = histogram
+        split_infos[i] = split_info
+        histograms[i, :] = histogram
 
     split_info = _find_best_feature_to_split_helper(split_infos)
     return split_info, histograms
+    ###########
+    
+#     for feature_idx in prange(context.n_features):
+#         #print('im here', feature_idx)
+#         split_info, histogram = _find_histogram_split(
+#             context, feature_idx, sample_indices)
+#         split_infos[feature_idx] = split_info
+#         histograms[feature_idx, :] = histogram
 
+#     split_info = _find_best_feature_to_split_helper(split_infos)
+#     return split_info, histograms
 
 #@njit
 def _find_best_feature_to_split_helper(split_infos):
@@ -633,17 +687,35 @@ def _find_best_bin_to_split_helper(context, feature_idx, histogram, sample_indic
     return best_split, histogram
 
 
+#@njit
 def H_builder(sample_indices1, sample_indices2, yd):
-    H_n1n2 = 0
-    ind_n1 = sample_indices1
-    ind_n2 = sample_indices2
-    for i1, i2 in ind_n1:
-        for i11, i22 in ind_n2:
-            if i1==i11:
-                H_n1n2 += np.dot(yd[i2], yd[i22])
+    #H_n1n2 = 0 
+    #ind_n1 = sample_indices1 if isinstance(sample_indices1, set) else \
+    #set({tuple((i,j)) for i,j in sample_indices1})
+    #ind_n2 = sample_indices2 if isinstance(sample_indices2, set) else \
+    #set({tuple((i,j)) for i,j in sample_indices2})
 
+    ## njit the function:
+    ind_n1 = sample_indices1 if isinstance(sample_indices1, np.ndarray) else \
+    np.array([[i,j] for i,j in sample_indices1])
+    ind_n2 = sample_indices2 if isinstance(sample_indices2, np.ndarray) else \
+    np.array([[i,j] for i,j in sample_indices2])
+    H_n1n2 = H_builder_njitted(ind_n1, ind_n2, yd)
     return H_n1n2
-#@njit(fastmath=False)
+
+#@njit
+def H_builder_njitted(sample_indices1, sample_indices2, yd):
+    H_n1n2 = 0 
+    for indice_1 in range(len(sample_indices1)):
+        i1, i2 = sample_indices1[indice_1]
+        for indice_2 in range(len(sample_indices2)):
+            i11, i22 = sample_indices2[indice_2]
+            if i1==i11:
+                H_n1n2 += np.sum(yd[i2]*yd[i22])
+    return H_n1n2
+
+
+@njit(fastmath=False)
 def _split_gain(gradient_split, hessian_split,
                 gradient, hessian,
                 l2_regularization):
@@ -659,8 +731,9 @@ def _split_gain(gradient_split, hessian_split,
     def negative_loss(gradient, hessian):
         #print("negative_loss hello")
         #return (gradient ** 2) / (hessian + l2_regularization)
-        gradient = np.array(gradient)
-        nl = np.shape(gradient)[0]
+        gradient = gradient
+        #nl = np.shape(gradient)[0]
+        nl = len(gradient)
         #print('hessian', hessian)
         return np.dot(gradient.reshape(-1, 1).T, np.dot(np.linalg.inv(\
                 hessian + l2_regularization*np.eye(nl)), gradient))

@@ -9,7 +9,7 @@ import numba
 # TODO: Write proper docstrings
 
 
-#@njit
+@njit
 def _get_threads_chunks(total_size):
     # Divide [0, total_size - 1] into n_threads contiguous regions, and
     # returns the starts and ends of each region. Used to simulate a 'static'
@@ -65,7 +65,7 @@ class LeastSquares(Loss):
                                                raw_predictions)
 
 
-#@njit(parallel=True, fastmath=True)
+@njit(parallel=True, fastmath=True)
 def _update_gradients_least_squares(gradients, y_true, raw_predictions):
     # shape (n_samples, 1) --> (n_samples,). reshape(-1) is more likely to
     # return a view.
