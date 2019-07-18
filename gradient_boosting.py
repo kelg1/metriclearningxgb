@@ -544,7 +544,19 @@ class GradientBoostingRegressor(BaseGradientBoostingMachine, RegressorMixin):
         """
         # Return raw predictions after converting shape
         # (n_samples, 1) to (n_samples,)
-        return self._raw_predict(X).ravel()
+        
+        # modify X 
+        diff_X_Xd = np.abs(X[:,:, np.newaxis] - self.Xd[:,:, np.newaxis].T).reshape(
+            X.shape[0], self.Xd.shape[0], X.shape[1], order='f')
+        mean_X_Xd = .5*(X[:,:, np.newaxis] + self.Xd[:,:, np.newaxis].T).reshape(
+            X.shape[0], self.Xd.shape[0], X.shape[1], order='f')
+        Phi_X_Xd = np.concatenate((diff_X_Xd, mean_X_Xd), axis=2)
+        #print(Phi_X_Xd.shape)
+        if self.verbose:
+            print(f"Binning {Phi_X_Xd.nbytes / 1e9:.3f} GB of data: ", end="",
+                  flush=True)
+        X_binned = self.bin_mapper_.fit_transform(Phi_X_Xd)
+        return self._raw_predict(X_binned).ravel()
 
     def _encode_y(self, y):
         # Just convert y to float32

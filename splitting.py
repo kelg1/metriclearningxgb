@@ -667,7 +667,7 @@ def H_builder_njitted(sample_indices1, sample_indices2, yd):
         for indice_2 in range(len(sample_indices2)):
             i11, i22 = sample_indices2[indice_2]
             if i1==i11:
-                H_n1n2 += np.sum(yd[i2]*yd[i22])
+                H_n1n2 += np.dot(yd[i2],yd[i22])
     return H_n1n2
 
 
