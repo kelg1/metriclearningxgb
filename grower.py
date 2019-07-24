@@ -182,6 +182,7 @@ class TreeGrower:
         self.G_split = None
         self.H_ = None
         self.H_split = None
+        
         self.splitting_context = SplittingContext(
             X_binned, yd, max_bins, n_bins_per_feature, gradients,
             hessians, l2_regularization, [], min_hessian_to_split,
@@ -277,7 +278,7 @@ class TreeGrower:
                 np.dot(self.splitting_context.l2_regularization*np.eye(nl) + \
                     self.splitting_context.H, x)
             values = scipy.optimize.minimize(obj, np.ones((nl,))/(1.*len(self.yd)), jac=jac,
-                # bounds=[(0,1) for i in range(nl)]
+                bounds=[(-self.shrinkage,self.shrinkage) for i in range(nl)]
                 ).x
             #print('values:', values)
             for i, n in enumerate(final_leaves):
